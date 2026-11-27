@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UBI — Encuentra tu nuevo lugar favorito</title>
+  <meta property="og:title" content="📍 Encuéntralo en UBI">
+  <meta property="og:description" content="Descubre los negocios de tu colonia en un mapa limpio.">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Roboto, sans-serif;
+           background: linear-gradient(#1E88E5, #0D47A1); min-height: 100vh;
+           display: flex; justify-content: center; padding: 24px 16px; color: #263238; }
+    main { background: #fff; border-radius: 26px; max-width: 440px; width: 100%;
+           padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.25); text-align: center; }
+    .logo { display: inline-block; background: #1E88E5; color: #fff; font-weight: 800;
+            padding: 6px 20px; border-radius: 20px; letter-spacing: 1px; }
+    img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 18px;
+          margin-top: 16px; background: #E3F2FD; }
+    h1 { font-size: 26px; margin: 16px 0 4px; }
+    .calif { color: #1E88E5; font-weight: 700; margin: 4px 0; }
+    .cat { opacity: .7; margin: 0 0 10px; }
+    .desc { text-align: left; line-height: 1.45; white-space: pre-line; }
+    .btn { display: block; padding: 15px; border-radius: 28px; margin-top: 12px;
+           text-decoration: none; font-weight: 700; font-size: 16px;
+           border: 2px solid #1E88E5; color: #1E88E5; }
+    .principal { background: #1E88E5; color: #fff; }
+    .verde { background: #25D366; border-color: #25D366; color: #fff; }
+    .nota { font-size: 13px; opacity: .65; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="logo">UBI</span>
+    <img id="foto" alt="Foto del negocio" hidden>
+    <h1 id="nombre">Cargando…</h1>
+    <p id="calif" class="calif"></p>
+    <p id="cat" class="cat"></p>
+    <p id="desc" class="desc"></p>
+    <a id="abrir" class="btn principal" href="#">📍 Abrir en UBI</a>
+    <a id="ir" class="btn" href="#" hidden>🧭 Cómo llegar</a>
+    <a id="wa" class="btn verde" href="#" hidden>💬 WhatsApp</a>
+    <p class="nota">¿Aún no tienes UBI? Muy pronto en Google Play.</p>
+  </main>
+
+  <script>
+    const SUPABASE = "https://mzlwxodidwcbfcdxypeh.supabase.co";
+    const CLAVE = "sb_publishable_e9ORdrIoMojSIR90xuG_xQ_YdM31Akl";
+    const CATEGORIAS = {
+      comida: "🍽️ Comida y restaurantes", cafeteria: "☕ Cafetería", panaderia: "🥐 Panadería y pastelería",
+      tortilleria: "🫓 Tortillería", carniceria: "🥩 Carnicería", tiendita: "🛒 Tiendita / abarrotes",
+      ropa: "👕 Ropa", calzado: "👟 Calzado", bazar: "🛍️ Bazar", taller: "🔧 Taller automotriz",
+      refaccionaria: "⚙️ Refaccionaria", llantera: "🛞 Llantera", autolavado: "🚿 Autolavado",
+      gasolinera: "⛽ Gasolinera", ferreteria: "🔨 Ferretería", farmacia: "💊 Farmacia",
+      estetica: "💈 Estética / barbería", papeleria: "📚 Papelería", veterinaria: "🐾 Veterinaria",
+      lavanderia: "🧺 Lavandería", electronica: "📱 Electrónica / celulares", muebleria: "🛋️ Mueblería",
+      gimnasio: "💪 Gimnasio", consultorio: "🩺 Consultorio / salud", floreria: "💐 Florería",
+      servicios_hogar: "🏠 Servicios del hogar", otro: "📍 Otro"
+    };
+
+    const id = new URLSearchParams(location.search).get("id") || "";
+    const valido = /^[0-9a-f-]{36}$/i.test(id);
+    const $ = (x) => document.getElementById(x);
+
+    // Si tiene UBI instalada, este botón la abre en el negocio
+    $("abrir").href = "intent://ubiappmx.github.io/n/?id=" + encodeURIComponent(id) +
+      "#Intent;scheme=https;package=com.ubi.cacion.app;end";
+
+    function noEncontrado() {
+      $("nombre").textContent = "Negocio no disponible";
+      $("desc").textContent = "Puede que ya no esté publicado en UBI.";
+    }
+
+    if (!valido) {
+      noEncontrado();
+    } else {
+      fetch(SUPABASE + "/rest/v1/rpc/negocio_detalle", {
+        method: "POST",
+        headers: { "apikey": CLAVE, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_id: id })
+      })
+      .then(r => r.json())
+      .then(filas => {
+        const n = Array.isArray(filas) ? filas[0] : null;
+        if (!n) return noEncontrado();
+
+        document.title = n.nombre + " — UBI";
+        $("nombre").textContent = n.nombre;
+        $("cat").textContent = CATEGORIAS[n.categoria] || "";
+        $("desc").textContent = n.descripcion || "";
+
+        const total = n.total_calificaciones || 0;
+        if (total > 0) {
+          const p = Number(n.calificacion_promedio);
+          $("calif").textContent = "✓".repeat(Math.max(1, Math.round(p))) + "  " + p.toFixed(1) +
+            " · " + total + (total === 1 ? " opinión" : " opiniones");
+        } else {
+          $("calif").textContent = "Aún sin calificaciones";
+        }
+
+        const foto = (n.fotos && n.fotos[0]) || n.foto_pin_url;
+        if (foto) { $("foto").src = foto; $("foto").hidden = false; }
+
+        $("ir").href = "https://www.google.com/maps/dir/?api=1&destination=" + n.lat + "," + n.lon;
+        $("ir").hidden = false;
+
+        if (n.whatsapp) {
+          const num = n.whatsapp.length === 10 ? "52" + n.whatsapp : n.whatsapp;
+          $("wa").href = "https://wa.me/" + num + "?text=" +
+            encodeURIComponent("Hola, vi tu negocio " + n.nombre + " en UBI 📍");
+          $("wa").hidden = false;
+        }
+      })
+      .catch(noEncontrado);
+    }
+  </script>
+</body>
+</html>
